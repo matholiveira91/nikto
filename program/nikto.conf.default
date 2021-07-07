@@ -2,6 +2,8 @@
 # CONFIG STUFF
 # $Id: config.txt 94 2009-01-21 22:47:25Z deity $
 #########################################################################################################
+# This is the default config file. If you want to change it, we strongly suggest you copy it to nikto.conf
+# This will top it being over-ridden when you git pull
 
 # default command line options, can't be an option that requires a value.  used for ALL runs.
 # CLIOPTS=-g -a
@@ -13,7 +15,8 @@ SKIPPORTS=21 111
  # @VERSION 	- Nikto version
  # @TESTID 	- Test identifier
  # @EVASIONS 	- List of active evasions
-USERAGENT=Mozilla/5.00 (Nikto/@VERSION) (Evasions:@EVASIONS) (Test:@TESTID)
+ # Example: USERAGENT=Mozilla/5.00 (Nikto/@VERSION) (Evasions:@EVASIONS) (Test:@TESTID)
+USERAGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36
 
 # RFI URL. This remote file should return a phpinfo call, for example: <?php phpinfo(); ?>
 # You may use the one below, if you like.
@@ -58,7 +61,7 @@ CIRT=107.170.99.251
 
 # The below allows you to vary which HTTP methods are used to check whether an HTTP(s) server 
 # is running. Some web servers, such as the autopsy web server do not implement the HEAD method
-CHECKMETHODS=HEAD GET
+CHECKMETHODS=GET
 
 # If you want to specify the location of any of the files, specify them here
 # EXECDIR=/opt/nikto				# Location of Nikto

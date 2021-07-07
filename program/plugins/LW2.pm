@@ -2617,7 +2617,7 @@ sub _http_do_request_ex {
               if ( defined $$W{'save_raw_headers'} );
 
             if ( $resp !~
-                /^([^\/]+)\/(\d\.\d)([ \t]+)(\d+)([ \t]*)(.*?)([\r\n]+)/ )
+                /^([^\/]+)\/(\d\.?\d?)([ \t]+)(\d+)([ \t]*)(.*?)([\r\n]+)/ )
             {
                 $$hout{whisker}->{'error'} = 'invalid HTTP response';
                 $$hout{whisker}->{'data'}  = $resp;
@@ -5208,6 +5208,8 @@ sub _stream_ssl_open {
 
     return _stream_err( $xr, 0, 'ssl create new' )
       if ( !( $xr->{sslobj} = Net::SSLeay::new( $xr->{ctx} ) ) );
+    # SNI stuff
+	 Net::SSLeay::set_tlsext_host_name($xr->{sslobj}, $W->{host});
     if ( defined $W->{ssl_ciphers} ) {
         if (
             !(
