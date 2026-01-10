@@ -1,4 +1,3 @@
-#VERSION,2.09
 ###############################################################################
 #  Copyright (C) 2006 Chris Sullo
 #
@@ -67,7 +66,9 @@ sub nikto_outdated {
     }
 
     # Some, like WEBrick, have multiple items but no spaces
-    elsif (($mark->{'banner'} !~ /\s/) && ($mark->{'banner'} =~ /\/.*\//) && ($mark->{'banner'} =~ /\(/)) {
+    elsif (   ($mark->{'banner'} !~ /\s/)
+           && ($mark->{'banner'} =~ /\/.*\//)
+           && ($mark->{'banner'} =~ /\(/)) {
 
         # try converting () t spaces
         foreach my $item (split(/[\(\)]/, $mark->{'banner'})) {
@@ -124,7 +125,7 @@ sub nikto_outdated {
                     $msg =~ s/\@RUNNING_VER/$BI/g;
                     $msg =~ s/\@CURRENT_VER/$v/g;
                     chomp($msg);
-                    add_vulnerability($mark, $msg, $OVERS{$V}{'tid'}, 0, "HEAD", "/");
+                    add_vulnerability($mark, $msg, $OVERS{$V}{'tid'}, "", "HEAD", "/");
                 }
             }
         }
@@ -143,7 +144,8 @@ sub vereval {
 
     # split both by last char of $_[2], as it is the name to version separator
     my $sepr = substr($_[2], (length($_[2]) - 1), 1);
-    nprint("nikto_outdated.plugin: verstring: $_[2], sepr:$sepr", "d");
+    nprint("nikto_outdated.plugin: verstring: $_[2], sepr:$sepr",
+           "d", ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'}));
 
     my $CURRENT      = lc($_[0]);
     my $RUNNING      = lc($_[1]);
@@ -151,7 +153,8 @@ sub vereval {
     my $RUNNING_ORIG = $RUNNING;
     my $mark         = $_[3];
 
-    nprint("nikto_outdated.plugin: \$CURRENT:$CURRENT:\$RUNNING:$RUNNING:", "d");
+    nprint("nikto_outdated.plugin: \$CURRENT:$CURRENT:\$RUNNING:$RUNNING:",
+           "d", ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'}));
 
     my @T = split(/$sepr/, $CURRENT);
     $CURRENT = $T[$#T];                    # should be version...
@@ -169,7 +172,7 @@ sub vereval {
     $CURRENT =~ s/\.$//;
 
     nprint("nikto_outdated.plugin: \$CURRENT:$CURRENT:\$RUNNING:$RUNNING\: (after numberifcation)",
-           "d");
+           "d", $mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'});
 
     if (($CURRENT !~ /[a-z]/) && ($RUNNING !~ /[a-z]/)) {
         @CUR = split(/\./, $CURRENT);
@@ -183,8 +186,8 @@ sub vereval {
     # start with 0... eval each in turn...
     for (my $i = 0 ; $i <= $#CUR ; $i++) {
         nprint("nikto_outdated.plugin: major compare: \$CUR[$i]:$CUR[$i]: \$RUN[$i]:$RUN[$i]:",
-               "d");
-        if ($CUR[$i] > $RUN[$i]) { return 1; }    # running is older
+               "d", $mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'});
+        if ($CUR[$i] > $RUN[$i])                  { return 1; }    # running is older
         if (($CUR[$i] ne "") && ($RUN[$i] eq "")) { return 1; }    # running is older
         if ($CUR[$i] < $RUN[$i])                                   # running is newer
         {

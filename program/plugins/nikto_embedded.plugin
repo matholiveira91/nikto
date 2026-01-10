@@ -1,4 +1,3 @@
-#VERSION,2.07
 ###############################################################################
 #  Copyright (C) 2006 Chris Sullo
 #
@@ -13,7 +12,7 @@
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to 
+#  along with this program; if not, write to
 #  Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 ###############################################################################
 # PURPOSE:
@@ -24,27 +23,29 @@ sub nikto_embedded_init {
                full_name   => "Embedded Detection",
                author      => "Tautology",
                description => "Checks to see whether the host is an embedded server.",
-               hooks       => { scan => { method => \&nikto_embedded, }, 
-                                start => { method => \&nikto_embedded_load, },
-                              },
-               copyright   => "2009 Chris Sullo"
+               hooks       => {
+                          scan  => { method => \&nikto_embedded, },
+                          start => { method => \&nikto_embedded_load, },
+                          },
+               copyright => "2009 Chris Sullo"
                };
     use vars qw/$EMBEDDEDDB/;
     return $id;
 }
 
 sub nikto_embedded_load {
+
     # load up the database here so we don't redo it each time
     $EMBEDDEDDB = init_db("db_embedded");
 }
 
 sub nikto_embedded {
-    return if $mark->{'terminate'};
     my ($mark) = @_;
 
     foreach my $item (@$EMBEDDEDDB) {
         return if $mark->{'terminate'};
-        my ($res, $content, $request, $response) = nfetch($mark, $item->{'uri'}, "GET", "", "", "", "embedded detection");
+        my ($res, $content, $request, $response) =
+          nfetch($mark, $item->{'uri'}, "GET", "", "", "", "embedded detection");
         if ($res eq "200") {
             $item->{'match'} = validate_and_fix_regex($item->{'match'});
             foreach my $line (split(/\n/, $content)) {
@@ -58,7 +59,15 @@ sub nikto_embedded {
                     $model =~ s/\+/ /g;
 
                     if ($model ne "") {
-                        add_vulnerability($mark, "$item->{'message'} $model", $item->{'nikto_id'}, 0, "GET", $item->{'uri'}, $request, $response);
+                        add_vulnerability($mark,
+                                          "$item->{'uri'}: $item->{'message'} $model",
+                                          $item->{'nikto_id'},
+                                          "",
+                                          "GET",
+                                          $item->{'uri'},
+                                          $request,
+                                          $response
+                                          );
                     }
                 }
             }

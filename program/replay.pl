@@ -14,8 +14,8 @@
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#  along with this program; if not, write to the Free Software 
+#  Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
 ###############################################################################
 # PURPOSE:
 # Replay a saved request
@@ -41,19 +41,19 @@ if ($infile eq '') { usage(); }
 # load save file
 if (!-r $infile) {
     print "ERROR: Argument 1 should be '-help' or a Nikto save file\n\n";
-    exit;
+    exit 1;
 }
 
 open(INFILE, "<$infile") || die print "Unable to open file: $!\n\n";
 while (<INFILE>) {
-    if ($_ =~ /^(((Test|OSVDB) ID)|Message):/) { $header .= $_; next; }
+    if ($_ =~ /^(Test ID|Message|References):/) { $header .= $_; next; }
     next unless $_ =~ /^REQUEST:/;
     chomp;
     $_ =~ s/^REQUEST://;
     $s_request = JSON::PP->new->utf8(1)->allow_nonref(1)->decode($_);
     if (ref($s_request) ne 'HASH') {
         print "ERROR: Unable to read JSON into request structure\n";
-        exit;
+        exit 1;
     }
 }
 close(INFILE);
@@ -68,7 +68,7 @@ if ($proxy ne '') {
     my @p = split(/:/, $proxy);
     if (($p[0] eq '') || ($p[1] eq '') || ($p[1] =~ /[^\d]/)) {
         print "ERROR: Invalid proxy designation\n";
-        exit;
+        exit 1;
     }
     $request{'whisker'}->{'proxy_host'} = $p[0];
     $request{'whisker'}->{'proxy_port'} = $p[1];

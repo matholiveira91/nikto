@@ -1,4 +1,3 @@
-#VERSION,2.008
 #######################################################################
 # File Source: https://cirt.net
 # (c) 2001 Chris Sullo, All Rights Reserved.
@@ -7,14 +6,13 @@
 # Chris Sullo (csullo@gmail.com)
 #
 # Note:
-# By submitting updates to this file you are transfering any and all copyright
+# By submitting updates to this file you are transferring any and all copyright
 # interest in the data to Chris Sullo so it can modified, incorporated into this product
 # relicensed or reused.
 #######################################################################
 # Notes:
-# - Use lower case letters
-# - Keep list alphabetically (for readability and easy human lookup)
-# Example to get the server headers: $ curl -I www.example.com
+# - Use lowercase only
+# - Keep list alphabetically (for readability)
 #######################################################################
 "header"
 "accept"
@@ -31,8 +29,14 @@
 "age"
 "allow"
 "alternates"
+"alt-svc"
 "authorization"
+"bfcache-opt-in"
 "cache-control"
+"cf-cache-status"
+"cf-edge-cache"
+"cf-ray"
+"cf-request-id"
 "commerce-server-software"
 "connection"
 "content-encoding"
@@ -44,6 +48,9 @@
 "content-security-policy"
 "content-security-policy-report-only"
 "content-type"
+"cross-origin-embedder-policy"
+"cross-origin-opener-policy"
+"cross-origin-resource-policy"
 "dasl"
 "date"
 "dav"
@@ -51,6 +58,8 @@
 "expect"
 "expect-ct"
 "expires"
+"fastly-restarts"
+"feature-policy"
 "from"
 "host"
 "if-match"
@@ -60,12 +69,15 @@
 "if-unmodified-since"
 "keep-alive"
 "last-modified"
+"link"
 "location"
 "max-forwards"
 "mime-version"
+"nel"
 "nncoection"
 "p3p"
 "persistent-auth"
+"permissions-policy"
 "pragma"
 "proxy-authenticate"
 "proxy-authorization"
@@ -74,12 +86,15 @@
 "range"
 "referer"
 "referrer-policy"
+"report-to"
 "retry-after"
 "server"
 "set-cookie"
 "status"
 "strict-transport-security"
 "te"
+"timing-allow-origin"
+"traceparent"
 "trailer"
 "transfer-encoding"
 "upgrade"
@@ -93,24 +108,40 @@
 "x-aspnet-version"
 "x-cache-hits"
 "x-clacks-overhead"
+"x-cloud-trace-context"
 "x-cnection"
 "x-content-security-policy"
 "x-content-type-options"
 "x-download-options"
+"x-drupal-cache"
 "x-frame-options"
+"x-generator"
+"x-google-gfe-backend-request-cost"
+"x-google-gfe-load-report"
+"x-guploader-uploadid"
 "x-id"
+"x-nf-request-id"
 "xmlns"
+"x-amz-cf-id"
+"x-amz-cf-pop"
+"x-amzn-requestid"
+"x-amz-version-id"
+"x-azure-ref"
+"x-cache"
+"x-cache-info"
+"x-cdn"
+"x-dns-prefetch-control"
+"x-fd-int-roxy-purgeid"
 "x-mod-pagespeed"
+"x-ms-request-id"
 "x-pad"
 "x-page-speed"
 "x-permitted-cross-domain-policies"
 "x-pingback"
 "x-powered-by"
 "x-robots-tag"
+"x-timer"
 "x-ua-compatible"
 "x-varnish"
 "x-webkit-csp"
 "x-xss-protection"
-"timing-allow-origin"
-"cf-cache-status"
-"cf-ray"

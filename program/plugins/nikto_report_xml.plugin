@@ -1,4 +1,3 @@
-#VERSION,2.06
 ###############################################################################
 #  Copyright (C) 2007 Chris Sullo
 #
@@ -38,7 +37,7 @@ sub nikto_report_xml_init {
     xml_open_templates();
     return $id;
 }
-
+###############################################################################
 sub xml_head {
     my ($file) = @_;
     print STDERR "+ ERROR: Output file not specified.\n" if $file eq '';
@@ -52,7 +51,7 @@ sub xml_head {
         while (<IN>) {
             $linectr++;
             if ($_ =~ /DOCTYPE niktoscan/) { $header_present = 1; last; }
-            if ($linectr > 10) { last; }
+            if ($linectr > 10)             { last; }
         }
         close(IN);
     }
@@ -142,10 +141,14 @@ sub xml_change_vars {
     $variables{"#TEMPL_SSL_INFO#"} = "";
     if (defined $mark->{'ssl_cipher'}) {
         $variables{"#TEMPL_SSL_INFO#"} =
-          "<ssl ciphers=\"" . hex_enc($mark->{ssl_cipher}) . "\" issuers=\"" .
-		  hex_enc($mark->{ssl_cert_issuer}) . "\" info=\"" .
-		  hex_enc($mark->{ssl_cert_subject}) . "\" altnames=\"" .
-                  hex_enc($mark->{ssl_cert_altnames}) . "\" />";
+            "<ssl ciphers=\""
+          . hex_enc($mark->{ssl_cipher})
+          . "\" issuers=\""
+          . hex_enc($mark->{ssl_cert_issuer})
+          . "\" info=\""
+          . hex_enc($mark->{ssl_cert_subject})
+          . "\" altnames=\""
+          . hex_enc($mark->{ssl_cert_altnames}) . "\" />";
     }
 
     $variables{"#TEMPL_IP#"}                 = simple_enc($mark->{'ip'});
@@ -176,20 +179,15 @@ sub xml_change_vars {
     if ($variables{"#TEMPL_LINK_NAME#"} !~ /\/$/) { $variables{"#TEMPL_LINK_NAME#"} .= '/'; }
     $variables{"#ID#"} = $item->{'nikto_id'};
 
-    # OSVDB info
-    my $OSVDB = $item->{'osvdb'};
-    if ($OSVDB !~ /\d+/) { $OSVDB = 0; }
-    $variables{"#TEMPL_OSVDB_LINK#"} = "http://osvdb.org/$OSVDB";
-    $variables{"#TEMPL_OSVDB#"}      = $OSVDB;
+    $variables{"#TEMPL_REFERENCES#"} = $item->{'refs'};
 
     # Scanner Messages Handling
     $variables{"#TEMPL_SMMSG#"} = $item->{'message'};
 
     # Positives Handling
     if ($template =~ /\#TEMPL_MSG#/) {
-	my $uri = $item->{'uri'};
-        if (($uri ne '') && ($uri !~ /^$mark->{'root'}/)) 
-		{ $uri = $mark->{'root'} . $uri . ": " }
+        my $uri = $item->{'uri'};
+        if (($uri ne '') && ($uri !~ /^$mark->{'root'}/)) { $uri = $mark->{'root'} . $uri; }
         $variables{"#TEMPL_URI#"}         = simple_enc($uri);
         $variables{"#TEMPL_MSG#"}         = $item->{'message'};
         $variables{"#TEMPL_HTTP_METHOD#"} = $item->{'method'};
@@ -198,7 +196,8 @@ sub xml_change_vars {
           "$protocol://$variables{\"#TEMPL_IP#\"}:$mark->{port}$variables{\"#TEMPL_URI#\"}";
         $variables{"#TEMPL_ITEM_NAME_LINK#"} = "";
         if ($hostname ne "") {
-            $variables{"#TEMPL_ITEM_NAME_LINK#"} = "$protocol://$hostname:$mark->{'port'}$variables{\"#TEMPL_URI#\"}";
+            $variables{"#TEMPL_ITEM_NAME_LINK#"} =
+              "$protocol://$hostname:$mark->{'port'}$variables{\"#TEMPL_URI#\"}";
         }
     }
 

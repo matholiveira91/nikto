@@ -1,4 +1,3 @@
-#VERSION,1.00
 ###############################################################################
 #  Copyright (C) 2012 Chris Sullo
 #
@@ -44,16 +43,16 @@ sub save_item {
     my $cookies_written = 0;
 
     open(SAVEFILE, ">>$fn") || die print "ERROR opening savefile '$fn': $@\n";
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
     print SAVEFILE "			  Information\n";
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
     print SAVEFILE "Test ID:  \t" . $resulthash->{'nikto_id'} . "\n";
-    print SAVEFILE "OSVDB ID: \t" . $resulthash->{'osvdb'} . "\n";
+    print SAVEFILE "References: \t" . $resulthash->{'refs'} . "\n";
     print SAVEFILE "Message:  \t" . $message . "\n";
     print SAVEFILE "Reason:   \t" . $resulthash->{'reason'} . "\n";
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
     print SAVEFILE "			  Request\n";
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
 
     if ($request->{'whisker'}{'method'} eq '') {
         print SAVEFILE "Not Applicable\n";
@@ -70,9 +69,9 @@ sub save_item {
         }
     }
     print SAVEFILE "\n";
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
     print SAVEFILE "			  Response\n";
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
     if ($response->{'whisker'}{'protocol'} eq '') {
         print SAVEFILE "Not Applicable\n";
     }
@@ -85,8 +84,8 @@ sub save_item {
 
             # Handle multiple headers with same name, e.g. set-cookie
             if (ref($response->{$header}) eq ARRAY) {
-                if ($cookies_written && ($header eq 'set-cookie')) { next; }
-                elsif ($header eq 'set-cookie') { $cookies_written = 1; }
+                if    ($cookies_written && ($header eq 'set-cookie')) { next; }
+                elsif ($header eq 'set-cookie')                       { $cookies_written = 1; }
                 foreach my $v (@{ $response->{$header} }) {
                     print SAVEFILE $header . ": " . $v . "\n";
                 }
@@ -97,9 +96,9 @@ sub save_item {
         }
         print SAVEFILE "\n" . $response->{'whisker'}{'data'} . "\n";
     }
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
     print SAVEFILE "			  Data Objects\n";
-    print SAVEFILE "-----------------------------------------------------------------------\n";
+    print SAVEFILE $VARIABLES{'DIV'} . "\n";
     if ($request->{'whisker'}{'method'} ne '') {
         print SAVEFILE "REQUEST:$json_request\n";
     }
@@ -124,33 +123,6 @@ sub save_getprefix {
 }
 
 ###############################################################################
-# get mark's save file name
-# Note: this is unused right now but keeping for next release
-sub get_report_filename {
-    my ($in_file, $in_format, $mark) = @_;
-    if ($in_file eq '.') {
-        my $prefix = "nikto_http";
-        $prefix .= "s" if ($mark->{'ssl'});
-        $prefix .= "_" . $mark->{'display_name'} . '_' . $mark->{'port'};
-        $prefix =~ s/,/\-/g;
-        $prefix =~ s/[^a-zA-Z0-9\.\-\_]/_/g;
-        $prefix =~ s/_+/_/g;
-        my $now = date_disp(time());
-        $now =~ s/\s.*$//;
-        $prefix .= "_" . $now . "." . $in_format;
-    }
-    else {
-        $prefix = $in_file;
-        if ($in_format eq '') {
-            $in_format = lc($in_file);
-            $in_format =~ s/(^.*\.)([^.]*$)/$2/g;
-        }
-    }
-
-    return $prefix, $in_format;
-}
-
-###############################################################################
 # Define/create the save directory
 sub save_createdir {
     my ($savedir, $mark) = @_;
@@ -164,16 +136,17 @@ sub save_createdir {
         $savedir .= "_" . $now;
     }
     elsif (-f $savedir) {
-        nprint("+ERROR: Directory from -Savedir is a file.");
-        exit;
+        nprint("+ ERROR: Directory from -Savedir is a file.");
+        exit 1;
     }
 
     # create?
     if (!-d $savedir) {
         mkdir($savedir);
         if (!-d $savedir) {
-            nprint("+ERROR: Unable to create -Save directory '$savedir'");
-            exit;
+            nprint("+ ERROR: Unable to create -Save directory '$savedir'",
+                   "", ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'displayname'}));
+            exit 1;
         }
     }
     return $savedir;
@@ -206,7 +179,7 @@ sub parse_hostfile {
             my @fields = split("\t", $_);
 
             # Get the host name
-            $fields[0] =~ /Host:\s+([\d\.]+)\s+\(([^\)]+)?\)/;
+            $fields[0] =~ /Host:\s+($LW2::IPv4_re|$LW2::IPv6_re_inc_zoneid)\s+\(([^\)]+)?\)/;
             $hostdesc = ($2 ne "") ? $2 : $1;
 
             # Parse the ports list from:
@@ -220,7 +193,7 @@ sub parse_hostfile {
                 }
                 $nmp =~ /^(?:\s+)?(\d+)\//;
                 nprint("+ nmap Input Queued: $hostdesc:$1");
-                push(@results, $hostdesc . ":" . $1);
+                push(@results, $hostdesc . "_" . $1);
             }
         }
         else {

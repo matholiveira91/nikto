@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 use strict;
-#VERSION,2.1.6
+
 ###############################################################################
 # Modules are now loaded in a function so errors can be trapped and evaluated
 load_modules();
@@ -27,7 +27,7 @@ load_modules();
 #     Sullo (sullo@cirt.net)
 #     http://cirt.net/
 #######################################################################
-# See the LICENSE.txt file for more information on the License Nikto is distributed under.
+# See the COPYING file for more information on the License Nikto is distributed under.
 #
 # This program is intended for use in an authorized manner only, and the author
 # can not be held liable for anything done with this program, code, or items discovered
@@ -41,11 +41,12 @@ use vars qw/@RESULTS @PLUGINS @DBFILE @REPORTS %CONTENTSEARCH/;
 
 # setup
 Getopt::Long::Configure('no_ignore_case');
-$COUNTERS{'scan_start'}  = time();
-$VARIABLES{'DIV'}        = "-" x 75;
-$VARIABLES{'name'}       = "Nikto";
-$VARIABLES{'version'}    = "2.1.6";
-$VARIABLES{'configfile'} = "/etc/nikto.conf";    ### Change if it's having trouble finding it
+$COUNTERS{'scan_start'} = time();
+$VARIABLES{'DIV'}       = "-" x 75;
+$VARIABLES{'name'}      = "Nikto";
+$VARIABLES{'version'}   = "2.5.0";
+$VARIABLES{'deferout'}  = 0;
+$VARIABLES{'defertxt'}  = [];
 
 # signal trap so we can close down reports properly
 $SIG{'INT'} = \&safe_quit;
@@ -71,10 +72,10 @@ load_databases('u');
 nprint("- $VARIABLES{'name'} v$VARIABLES{'version'}");
 nprint($VARIABLES{'DIV'});
 
-# No targets - quit while we're ahead
+# No targets - quit before we do anything
 if ($CLI{'host'} eq '') {
-    nprint("+ ERROR: No host or URL specified");
-    usage();
+    nprint("+ ERROR: No host (-host) specified");
+    usage(1);
 }
 
 $COUNTERS{'total_targets'} = $COUNTERS{'hosts_completed'} = 0;
@@ -90,18 +91,32 @@ if (defined($CLI{'key'}) || defined($CLI{'cert'})) {
 
 # Open reporting
 report_head($CLI{'format'}, $CLI{'file'});
+$VARIABLES{'deferout'}  = 1 unless $CLI{'display'} ne "";
 
 # Now check each target is real and remove duplicates/fill in extra information
 foreach my $mark (@MARKS) {
-    $mark->{'test'} = 1;
+    $mark->{'messages'} = ();
+    $mark->{'test'}     = 1;
     $mark->{'failures'} = 0;
 
     # Try to resolve the host
-    ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'display_name'}) = resolve($mark->{'ident'});
+    my $msgs;
+    ($mark->{'hostname'}, $mark->{'ip'}, $mark->{'display_name'}, $msgs) =
+      resolve($mark->{'ident'});
+    if ($msgs ne "") {
+        push(@{ $mark->{'messages'} }, $msgs);
+    }
+
+    # Load db_tests
+    set_scan_items();
+
+    # Start hook to allow plugins to load databases etc
+    run_hooks("", "start");
 
     # Skip if we can't resolve the host - we'll error later
-    if (!defined $mark->{'ip'}) {
-        $mark->{'test'} = 0;
+    if (!defined $mark->{'ip'} || $mark->{'ip'} eq "") {
+        $mark->{'errmsg'} = $msgs;
+        $mark->{'test'}   = 0;
         next;
     }
 
@@ -111,17 +126,19 @@ foreach my $mark (@MARKS) {
         foreach my $p (split(/;/, $CONFIGFILE{'STATIC-COOKIE'})) {
             if ($p =~ /"([^=]+)=(.+)"/) {
                 LW2::cookie_set(\%{ $mark->{'cookiejar'} }, $1, $2);
-                }
-       }
+            }
+        }
     }
 
     if (defined $CLI{'vhost'}) { $mark->{'vhost'} = $CLI{'vhost'} }
 
-    # Check that the port is open
+# Check that the port is open. Return value is overloaded, either 1 for open or an error message to convey
     my $open =
-      port_check(time(), $mark->{'hostname'}, $mark->{'ip'}, $mark->{'port'}, $CLI{'key'}, $CLI{'cert'}, $mark->{'vhost'});
-    if ($open == 0) {
-        $mark->{'test'} = 0;
+      port_check(time(), $mark->{'hostname'}, $mark->{'ip'}, $mark->{'port'}, $CLI{'key'},
+                 $CLI{'cert'}, $mark->{'vhost'});
+    if (($open != 1) && ($open != 2)) {
+        $mark->{'test'}   = 0;
+        $mark->{'errmsg'} = $open;
         next;
     }
     else {
@@ -135,94 +152,96 @@ foreach my $mark (@MARKS) {
     }
 }
 
-# Load db_tests
-set_scan_items();
-
-# Start hook to allow plugins to load databases etc
-run_hooks("", "start");
-
 # Now we've done the precursor, do the scan
 foreach my $mark (@MARKS) {
-    next unless ($mark->{'test'});
-    $mark->{'start_time'} = time();
-    $VARIABLES{'TEMPL_HCTR'}++;
+    $VARIABLES{'deferout'}  = 1 unless $CLI{'display'} ne "";
+    my %FoF = ();
+    $mark->{'total_vulns'}  = 0;
+    $mark->{'total_errors'} = 0;
+    $mark->{'start_time'}   = time();
+    report_host_start($mark);
+
+    if (!$mark->{'test'}) {
+        if ($mark->{'errmsg'} ne "") {
+            add_vulnerability($mark, $mark->{'errmsg'}, 0, "", "GET", "/", "", "");
+        }
+
+        report_host_end($mark);
+        next;
+    }
 
     if (defined $CLI{'vhost'}) {
         $mark->{'vhost'} = $CLI{'vhost'};
     }
+    $VARIABLES{'TEMPL_HCTR'}++;
 
     # Saving responses
     if ($CLI{'saveresults'} ne '') {
-        $mark->{'save_dir'} = save_createdir($CLI{'saveresults'}, $mark);
+        $mark->{'save_dir'}    = save_createdir($CLI{'saveresults'}, $mark);
         $mark->{'save_prefix'} = save_getprefix($mark);
     }
 
-    $mark->{'total_vulns'}  = 0;
-    $mark->{'total_errors'} = 0;
+    nfetch($mark, "/", "GET", "", "", { noprefetch => 1, nopostfetch =>  }, "getinfo");
 
-    my %FoF = ();
+    $VARIABLES{'deferout'}  = 0;
+    dump_target_info($mark);
 
-    nfetch($mark, "/", "GET", "", "", { noprefetch => 1, nopostfetch => 1 }, "getinfo");
-
-    report_host_start($mark);
-    if ($CLI{'findonly'}) {
-        my $protocol = "http";
-        if ($mark->{'ssl'}) { $protocol .= "s"; }
-        if ($mark->{'banner'} eq "") {
-            $mark->{'banner'} = "(no identification possible)";
+    # Now print any deferred output
+    if (@{ $VARIABLES{'defertxt'} }) {
+        foreach my $element (@{ $VARIABLES{'defertxt'} }) {
+            if ($element =~ s/^([a-zA-Z])?:://) {
+                nprint($element, $1);
+            } else {
+                nprint($element);
+            }
         }
+    }
+    undef $VARIABLES{'defertxt'};
 
-        add_vulnerability($mark,
-                   "Server: $protocol://$mark->{'display_name'}:$mark->{'port'}\t$mark->{'banner'}",
-                   0);
-    }
-    else {
-        dump_target_info($mark);
-        unless ((defined $CLI{'nofof'}) || ($CLI{'plugins'} eq '@@NONE')) { map_codes($mark) }
-        run_hooks($mark, "recon");
-        run_hooks($mark, "scan");
-    }
+    unless ((defined $CLI{'nofof'}) || ($CLI{'plugins'} eq '@@NONE')) { map_codes($mark) }
+    run_hooks($mark, "recon");
+    run_hooks($mark, "scan");
+
     $mark->{'end_time'} = time();
     $mark->{'elapsed'}  = $mark->{'end_time'} - $mark->{'start_time'};
-    if (!$CLI{'findonly'}) {
-        if (!$mark->{'terminate'}) {
-            nprint(
-                "+ $COUNTERS{'totalrequests'} requests: $mark->{'total_errors'} error(s) and $mark->{'total_vulns'} item(s) reported on remote host"
-                );
-        }
-        else {
-            nprint(
-                "+ Scan terminated:  $mark->{'total_errors'} error(s) and $mark->{'total_vulns'} item(s) reported on remote host"
-                );
-        }
-        nprint(  "+ End Time:           "
-               . date_disp($mark->{'end_time'})
-               . " (GMT$VARIABLES{'GMTOFFSET'}) ($mark->{'elapsed'} seconds)");
+    if (!$mark->{'terminate'}) {
+        nprint(
+            "+ $COUNTERS{'totalrequests'} requests: $mark->{'total_errors'} error(s) and $mark->{'total_vulns'} item(s) reported on remote host"
+            );
     }
+    else {
+        nprint(
+            "+ Scan terminated: $mark->{'total_errors'} error(s) and $mark->{'total_vulns'} item(s) reported on remote host"
+            );
+    }
+    nprint(  "+ End Time:           "
+           . date_disp($mark->{'end_time'})
+           . " (GMT$VARIABLES{'GMTOFFSET'}) ($mark->{'elapsed'} seconds)");
     nprint($VARIABLES{'DIV'});
 
     $COUNTERS{'hosts_completed'}++;
     report_host_end($mark);
 }
+
 $COUNTERS{'scan_end'}     = time();
 $COUNTERS{'scan_elapsed'} = ($COUNTERS{'scan_end'} - $COUNTERS{'scan_start'});
 report_summary();
 report_close();
 
-if (!$CLI{'findonly'}) {
-    nprint("+ $COUNTERS{'hosts_completed'} host(s) tested");
-    nprint("+ $COUNTERS{'totalrequests'} requests made in $COUNTERS{'scan_elapsed'} seconds", "v");
+nprint("+ $COUNTERS{'hosts_completed'} host(s) tested");
+nprint("+ $COUNTERS{'totalrequests'} requests made in $COUNTERS{'scan_elapsed'} seconds", "v");
 
-    send_updates(@MARKS);
-}
+send_updates(@MARKS);
 
 nprint("T:" . localtime() . ": Ending", "d");
 
-exit;
+exit 0;
 
 #################################################################################
 # Load config files in order
 sub config_init {
+    my (@CF, $home);
+    my $config_exists = 0;
 
     # read just the --config option
     {
@@ -233,31 +252,33 @@ sub config_init {
         if (defined $optcfg{'config'}) { $VARIABLES{'configfile'} = $optcfg{'config'}; }
     }
 
-    # Read the config files in order
-    my ($error, $home);
-    my $config_exists = 0;
-    $error = load_config("$VARIABLES{'configfile'}");
-    $config_exists = 1 if ($error eq "");
+    # Guess Nikto current directory
+    my $NIKTODIR = abs_path($0);
+    chomp($NIKTODIR);
+    $NIKTODIR =~ s#[\\/]nikto.pl$##;
 
-    # Guess home directory -- to support Windows
+    # Guess user's home directory -- to support Windows
     foreach my $var (split(/ /, "HOME USERPROFILE")) {
         $home = $ENV{$var} if ($ENV{$var});
     }
-    $error = load_config("$home/nikto.conf");
-    $config_exists = 1 if ($error eq "");
 
-    # Guess Nikto current directory
-    my $NIKTODIR = $0;
-    chomp($NIKTODIR);
-    $NIKTODIR =~ s#[\\/]nikto.pl$##;
-    $error = load_config("$NIKTODIR/nikto.conf");
-    $config_exists = 1 if ($error eq "");
+    # Read the conf files in order (previous values are over-written with each, if multiple found)
+    push(@CF, "$NIKTODIR/nikto.conf.default");
+    push(@CF, "/etc/nikto.conf");
+    push(@CF, "$home/nikto.conf");
+    push(@CF, "$NIKTODIR/nikto.conf");
+    push(@CF, "nikto.conf");
+    push(@CF, "$VARIABLES{'configfile'}");
 
-    $error = load_config("nikto.conf");
-    $config_exists = 1 if ($error eq "");
+    # load in order, over-writing values as we go
+    for (my $i = 0 ; $i <= $#CF ; $i++) {
+        my $error = load_config($CF[$i]);
+        $config_exists = 1 if ($error eq "");    # any loaded is good
+    }
 
+    # Couldn't find any
     if ($config_exists == 0) {
-        die "- Could not find a valid nikto config file\n";
+        die "- Could not find a valid nikto config file. Tried: @CF\n";
     }
 
     return;
@@ -265,29 +286,31 @@ sub config_init {
 
 ###############################################################################
 sub load_modules {
-        my $errors=0;
-	my @modules = qw/Getopt::Long Time::Local IO::Socket/;
-	push(@modules,"List::Util qw(sum)");
-	foreach my $mod (@modules) { 
-		eval "use $mod";
-        	if ($@) { 
-			print "ERROR: Required module not found: $mod\n"; 
-			$errors=1; 
-		}
-	}
+    my $errors  = 0;
+    my @modules = qw/Getopt::Long Time::Local IO::Socket Net::hostent/;
+    push(@modules, "List::Util qw(sum)");
+    push(@modules, "Cwd 'abs_path'");
+    foreach my $mod (@modules) {
+        eval "use $mod";
+        if ($@) {
+            print STDERR "ERROR: Required module not found: $mod\n";
+            $errors = 1;
+        }
+    }
 
-	@modules = ();
-	push(@modules,"Time::HiRes qw(sleep ualarm gettimeofday tv_interval)");
-	push(@modules,"POSIX qw(:termios_h)");
-	foreach my $mod (@modules) { 
-		eval "use $mod";
-		if ($@ && $^O !~ /MSWin32/) {
-			# Allow this to work on Windows
-			if ($@) { print "ERROR: Required module not found: $mod\n"; $errors=1; }
-		}
-	}
+    @modules = ();
+    push(@modules, "Time::HiRes qw(sleep ualarm gettimeofday tv_interval)");
+    push(@modules, "POSIX qw(:termios_h)");
+    foreach my $mod (@modules) {
+        eval "use $mod";
+        if ($@ && $^O !~ /MSWin32/) {
 
-	if ($errors) { exit; }
+            # Allow this to work on Windows
+            if ($@) { print STDERR "ERROR: Required module not found: $mod\n"; $errors = 1; }
+        }
+    }
+
+    if ($errors) { exit 1; }
 }
 
 #################################################################################
@@ -325,7 +348,7 @@ sub load_config {
 #################################################################################
 # find plugins directory
 sub setup_dirs {
-    my $CURRENTDIR = $0;
+    my $CURRENTDIR = abs_path($0);
     chomp($CURRENTDIR);
     $CURRENTDIR =~ s#[\\/]nikto.pl$##;
     $CURRENTDIR = "." if $CURRENTDIR =~ /^nikto.pl$/;
@@ -343,7 +366,7 @@ sub setup_dirs {
         }
         else {
             print STDERR "Could not work out the nikto EXECDIR, try setting it in nikto.conf\n";
-            exit;
+            exit 1;
         }
     }
     unless (defined $CONFIGFILE{'PLUGINDIR'}) {

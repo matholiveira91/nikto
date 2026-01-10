@@ -1,9 +1,42 @@
+
 nikto
 =====
+[![alt text](https://cirt.net/wp-content/uploads/2025/12/patreon.png "Become a patron of Nikto!")](https://www.patreon.com/sullo)
 
-Nikto web server scanner  - https://cirt.net/Nikto2
 
-Full documentation - https://cirt.net/nikto2-docs/
+Nikto web server scanner  - https://cirt.net/Nikto2 
+
+Full documentation - https://github.com/sullo/nikto/wiki
+
+Run normally:
+
+~~~
+git clone https://github.com/sullo/nikto
+# Main script is in program/
+cd nikto/program
+# Run using the shebang interpreter
+./nikto.pl -h http://www.example.com
+# Run using perl (if you hate chmod)
+perl nikto.pl -h http://www.example.com
+~~~
+
+Run as a Docker container from ghcr.io:
+
+`docker pull ghcr.io/sullo/nikto:latest`
+
+Run as a Docker container:
+
+~~~bash
+git clone https://github.com/sullo/nikto.git
+cd nikto
+docker build -t sullo/nikto .
+# Call it without arguments to display the full help
+docker run --rm sullo/nikto
+# Basic usage
+docker run --rm sullo/nikto -h http://www.example.com
+# To save the report in a specific format, mount /tmp as a volume:
+docker run --rm -v $(pwd):/tmp sullo/nikto -h http://www.example.com -o /tmp/out.json
+~~~
 
 Basic usage:
 
@@ -26,6 +59,7 @@ Basic usage:
                                S     Scrub output of IPs and hostnames
                                V     Verbose output
        -dbcheck           Check database and other key files for syntax errors
+       -followredirects   Follow 3xx redirects to new location
        -evasion+          Encoding technique:
                                1     Random URI encoding (non-UTF8)
                                2     Directory self-reference (/./)
@@ -62,6 +96,7 @@ Basic usage:
        -mutate-options    Provide information for mutates
        -nointeractive     Disables interactive features
        -nolookup          Disables DNS lookups
+       -noslash           Strip trailing slash from URL (e.g., '/admin/' to '/admin')
        -nossl             Disables the use of SSL
        -no404             Disables nikto attempting to guess a 404 page
        -output+           Write output to this file ('.' for auto-name)
@@ -94,7 +129,26 @@ Basic usage:
        -until             Run until the specified time or duration
        -update            Update databases and plugins from CIRT.net
        -useproxy          Use the proxy defined in nikto.conf
+       -usecookies        Use cookies from responses in future requests
        -Version           Print plugin and database versions
        -vhost+            Virtual host (for Host header)
               + requires a value
 ```
+
+License
+=======
+Copyright (C) 2001 Chris Sullo
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; version 2
+of the License only.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to
+Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
